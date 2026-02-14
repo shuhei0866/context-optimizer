@@ -1,5 +1,5 @@
-import { OptimizationInput, OptimizedVariant, OptimizationReport, VariantSpec } from './types';
-import { gainRatio, expectedGain } from './score';
+import { OptimizationInput, OptimizedVariant, OptimizationReport, VariantSpec } from './types.js';
+import { gainRatio, expectedGain } from './score.js';
 
 function makeNoVariant(taskId: string, taskName: string): OptimizedVariant {
   return {

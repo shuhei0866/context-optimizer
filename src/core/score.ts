@@ -1,4 +1,4 @@
-import { VariantSpec } from './types';
+import { VariantSpec } from './types.js';
 
 export function expectedGain(v: VariantSpec): number {
   const safeSuccess = Math.max(0, Math.min(1, v.successRate));

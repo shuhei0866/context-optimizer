@@ -1,0 +1,35 @@
+[
+  {
+    "run_id": "run-001",
+    "taskId": "discord-review-1",
+    "variantId": "compact-1",
+    "input_tokens": 420,
+    "output_tokens": 146,
+    "status": "ok",
+    "requiredSkillUsed": true,
+    "schemaValid": true,
+    "quality": 94
+  },
+  {
+    "run_id": "run-002",
+    "taskId": "discord-review-1",
+    "variantId": "compact-1",
+    "input_tokens": 418,
+    "output_tokens": 144,
+    "status": "ok",
+    "requiredSkillUsed": true,
+    "schemaValid": true,
+    "quality": 91
+  },
+  {
+    "run_id": "run-003",
+    "taskId": "discord-ack-1",
+    "variantId": "compact-ack",
+    "input_tokens": 260,
+    "output_tokens": 72,
+    "status": "ok",
+    "requiredSkillUsed": true,
+    "schemaValid": true,
+    "quality": 96
+  }
+]

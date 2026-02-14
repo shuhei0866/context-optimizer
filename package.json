@@ -12,6 +12,7 @@
     "discord:mcp": "npm run build && node dist/cli.js --tasks data/tasks.csv --variants data/experiments.csv --runs data/runs.csv --budget 16 --strict true --format text"
   },
   "devDependencies": {
+    "@types/node": "^25.2.3",
     "typescript": "^5.6.0"
   }
 }

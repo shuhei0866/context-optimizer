@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
-import { selectVariants } from './core';
-import type { OptimizedVariant, TaskSpec, VariantSpec } from './core';
+import { selectVariants } from './core/index.js';
+import type { OptimizedVariant, TaskSpec, VariantSpec } from './core/index.js';
 
 type RecordLike = Record<string, unknown>;
 
