@@ -1,0 +1,7 @@
+{
+  "taskId": "discord-review-001",
+  "name": "Discord review post",
+  "frequency": 120,
+  "baselineTokens": 420,
+  "qualityGate": 0.95
+}

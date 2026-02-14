@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/task-spec.schema.json",
+  "title": "TaskSpec",
+  "type": "object",
+  "required": ["taskId", "name", "frequency", "baselineTokens", "qualityGate"],
+  "properties": {
+    "taskId": { "type": "string" },
+    "name": { "type": "string" },
+    "frequency": { "type": "number", "minimum": 0 },
+    "baselineTokens": { "type": "number", "minimum": 0 },
+    "qualityGate": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

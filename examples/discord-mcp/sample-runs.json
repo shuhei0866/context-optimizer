@@ -1,0 +1,18 @@
+[
+  {
+    "run_id": "run-001",
+    "task_id": "discord-review-1",
+    "input_tokens": 420,
+    "output_tokens": 150,
+    "status": "ok",
+    "quality": 0.92
+  },
+  {
+    "run_id": "run-002",
+    "task_id": "discord-review-1",
+    "input_tokens": 410,
+    "output_tokens": 148,
+    "status": "ok",
+    "quality": 0.9
+  }
+]
