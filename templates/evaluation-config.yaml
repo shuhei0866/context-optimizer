@@ -1,0 +1,8 @@
+quality:
+  strict_mode: true
+  quality_gate: 0.95
+  minimum_success_rate: 0.9
+budget:
+  effort: 100
+output:
+  format: json
