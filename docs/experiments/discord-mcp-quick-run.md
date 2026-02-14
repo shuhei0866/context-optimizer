@@ -52,6 +52,78 @@ node dist/cli.js \
   --format text
 ```
 
+## 実験時に与えたDiscord MCP向けの具体指示
+
+この実験は `examples/discord-mcp/prompt-template.md` と `examples/discord-mcp/quality-rules.md` を土台に、  
+次のような形でタスクごとに指示を投げて、JSON結果を収集する想定で組んでいます。
+
+### 共通（`discord-review-1`）
+
+```text
+あなたはレビュー投稿をサポートするアシスタントです。
+入力はレビュー対象のテキストです。
+
+出力形式:
+{
+  "status": "ok" または "fail",
+  "findings": [
+    {
+      "target": "対象箇所名",
+      "summary": "問題点を1文で説明",
+      "severity": "high|medium|low"
+    }
+  ],
+  "next_action": "send_reminder | done | retry"
+}
+```
+
+- `findings` は重複を避け、最大 3 件。
+- 追加の自然文は出力しない。
+- `status = ok` の場合は `findings` を 1〜3 件にする。
+- `discord.send_message` は1回だけ実行し、引数は必須項目を埋める。
+
+### 共通ルール（全タスク共通）
+
+- `requiredSkillUsed` は必須スキル実行有無
+- `schemaValid` は出力が上記JSONスキーマを満たすか
+- `quality` は 0〜100 で品質採点（運用上は別評価器で算出）
+
+### `compact-1` の場合に追加した実行指示
+
+```text
+以下の制約を追加:
+- 冗長な説明文を除去し、要点中心で箇条書きのみ返す。
+- 同義語や長い導入文は省く。
+- `findings` の文字量は最小限にする。
+```
+
+### `compact-2` の場合に追加した実行指示
+
+```text
+さらに厳しめに圧縮:
+- `findings` は最短で構成し、見出し・接続詞・説明文を削る。
+- 形式は維持するが、要約語彙を短縮し、返答語量を最小化する。
+- 冗長化が品質へ与える影響を観測対象として記録する。
+```
+
+### `discord-ack-1` 用の共通指示（`compact-ack`）
+
+```text
+あなたは完了応答を返すアシスタントです。
+受理済みイベントに対して、短いJSONのみを返すこと:
+{
+  "status": "ok" または "fail",
+  "findings": [{"target":"acknowledgement","summary":"完了内容","severity":"low"}],
+  "next_action": "done"
+}
+```
+
+- 文章は固定化し、変動が少なくなるよう短く返す。
+- `compact-ack` はこの固定文の短縮とフィールドの最短化を意図している。
+
+> 注意: `quick-runs.json` はこの実験の再現用サンプルであり、プロンプトの文字列自体を直接は保存していません。  
+> 実運用で再現性を高める場合は、`promptBefore` / `promptAfter`（または `promptDiff`）を保存する方式を推奨します。
+
 ## 実行結果（標準出力）
 
 ```text
