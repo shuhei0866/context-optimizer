@@ -9,6 +9,28 @@
 - 候補バリアント: `examples/discord-mcp/samples/quick-variants.csv`
 - 実行ログ（raw形式）: `examples/discord-mcp/samples/quick-runs.json`
 
+### データの意味
+
+- `quick-tasks.csv`（設計時情報）
+  - `taskId`: タスク識別子（同一タスクを実験・集計で突合するキー）
+  - `name`: レポートや表示名
+  - `frequency`: 観測窓あたりの想定呼び出し回数（本実験では `discord-review-1` が 120、`discord-ack-1` が 40）
+  - `baselineTokens`: 改善前1回あたりの想定消費トークン
+  - `qualityGate`: そのタスクの許容品質閾値（現行実装では主に `strictMode` 時のバリアント除外に利用）
+- `quick-variants.csv`（候補評価データ）
+  - `variantId`: 改善案ID（提案する施策そのもの）
+  - `reducedTokens`: 1回あたりのトークン削減見込み
+  - `successRate`: 提案導入時に成功した比率（0〜1）
+  - `violationRate`: 品質違反率（0〜1）
+  - `requiredEffort`: 実装コスト（予算制約の単位）
+- `quick-runs.json`（観測ログ）
+  - `taskId`: 実行対象タスク
+  - `variantId`: 実行時に使われたバリアント（`deriveVariants` がここからバリアントの成功率等を再推定）
+  - `status`: 実行成否（`ok`/`fail`）
+  - `requiredSkillUsed`: 必須スキルの実行有無（`strictMode` 配下で安全性判定に寄与）
+  - `schemaValid`: スキーマ適合フラグ（品質下限の一部）
+  - `quality`: 品質スコア（0〜100）
+
 ## 実行コマンド
 
 ```bash
