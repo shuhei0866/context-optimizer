@@ -1,4 +1,4 @@
-taskId,variantId,reducedTokens,successRate,violationRate,requiredEffort
-discord-review-1,compact-1,90,0.94,0.02,8
-discord-review-1,compact-2,120,0.84,0.08,14
-discord-ack-1,compact-ack,45,0.98,0.01,5
+taskId,variantId,reducedTokens,successRate,violationRate,requiredEffort,description
+discord-review-1,compact-1,90,0.94,0.02,8,"レビュー文面の装飾文を削る。要点箇条書き + 最低限の敬語化に圧縮。"
+discord-review-1,compact-2,120,0.84,0.08,14,"出力フォーマットを超短縮し、長文根拠文を削除。再試行誘導句も簡略化。"
+discord-ack-1,compact-ack,45,0.98,0.01,5,"ACK通知の固定前置詞を削減。`result`/`status`のみ短く出力するよう最小化。"
