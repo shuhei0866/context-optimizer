@@ -1,23 +1,36 @@
 # context-optimizer
 
-A small framework for minimizing LLM context usage by optimization-first prompt and task management.
+LLM タスクの「コンテキスト最適化」を、再現可能な形で進めるための最小フレームワーク。
 
-The project is designed to solve:
+同一/類似タスクを繰り返し実行する場面で、  
+`呼び出し回数 × 1回あたりコンテキスト` が大きいものを優先的に最適化する。
 
-- Which tasks should be optimized first
-- How much context budget can be saved
-- How to keep quality guarantees while reducing prompt size
+- AI 向け運用規約: [AGENTS.md](AGENTS.md)
+- 数式記法（Obsidian 向け）: [docs/obsidian-kfluid-math-for-ai.md](docs/obsidian-kfluid-math-for-ai.md)
 
-## Features
+---
 
-- Task-level scoring with frequency and average token usage
-- Variant-level improvement estimation (`gain`, `quality`, `cost`)
-- Greedy baseline optimizer for first rollout
-- Reusable templates for task specification and evaluation
-- Discord MCP review scenario examples
-- Minimal evaluator abstraction for quality rules
+## 目的
 
-## Project structure
+- コンテキストコストの高いタスクを選定する
+- 品質制約を守りつつ、必要最小コンテキストに近づける
+- 事前定義した評価ルールで再現性を担保する
+- 実験ログから改善前後を比較し、継続的に更新する
+
+---
+
+## 何を解くか（数理）
+
+`TaskSpec` と `VariantSpec` を用いて、以下を最小化します。
+
+- 最適化の総工数（`budget`）の制約
+- 品質ゲートを満たす `score` の高い候補選択
+
+基礎式は簡潔で、`docs/context-optimization-framework.md` に詳しく記載。
+
+---
+
+## ディレクトリ構成
 
 ```text
 context-optimizer/
@@ -50,28 +63,102 @@ context-optimizer/
 │     ├─ evaluator.ts
 │     ├─ ablation.ts
 │     └─ index.ts
-├─ tests/
 ├─ data/
 │  ├─ tasks.csv
 │  ├─ runs.csv
 │  └─ experiments.csv
+├─ tests/
 ├─ .github/workflows/ci.yml
 └─ .gitignore
 ```
 
-## Quick start
+---
 
-1. Define task metrics in a `TaskSpec`.
-2. Estimate baseline frequency and context usage.
-3. Add optimization variants and their estimated reduction/quality/effect.
-4. Run the optimizer and select highest-score variants within budget.
+## クイックスタート
 
-## Scope
+### 1. 依存関係
 
-- Context optimization is done at task level, not individual model outputs.
-- Quality is evaluated by explicit rules, not stylistic preference.
-- This repository targets practical repeatability with minimal context overhead.
+```bash
+npm install
+npm run typecheck
+```
 
-## License
+### 2. 最適化を回す（TypeScript）
 
-MIT. See `LICENSE`.
+```ts
+import { TaskSpec, selectVariants } from './src/core';
+
+const tasks: TaskSpec[] = [
+  {
+    taskId: 'discord-review-1',
+    name: 'Discord レビュー投稿',
+    frequency: 120,
+    baselineTokens: 420,
+    qualityGate: 0.95,
+  },
+];
+
+const variants = [
+  {
+    variantId: 'compact-1',
+    taskId: 'discord-review-1',
+    name: 'プロンプト圧縮',
+    reducedTokens: 90,
+    successRate: 0.94,
+    violationRate: 0.02,
+    requiredEffort: 8,
+  },
+];
+
+const result = selectVariants({
+  tasks,
+  variants,
+  budget: 20,
+  strictMode: true,
+});
+
+console.log(result);
+```
+
+`selectVariants` は以下を返します。
+
+- タスクごとの最適候補
+- 想定削減量
+- 工数使用率
+- 最終コンテキスト見積り
+
+### 3. 結果の運用
+
+- `selected` 候補をテンプレートに反映
+- 最低 3 回以上の追試で品質安定性を確認
+- 2 週間ごとに baseline と成功率を再計測
+
+### 4. Discord MCP 実験
+
+```bash
+npm run discord:mcp
+```
+
+このコマンドは `data/tasks.csv` / `data/experiments.csv` / `data/runs.csv` を使って、  
+Discord MCP 向けの選定を最短で回します。
+
+必要なら `--deriveVariants` を付けて、`runs` ログから `successRate` / `violationRate` / `reducedTokens` を再推定できます。
+
+```bash
+npm run build
+node dist/cli.js --tasks data/tasks.csv --variants data/experiments.csv --runs examples/discord-mcp/sample-runs.json --deriveVariants --format json
+```
+
+---
+
+## 重要な前提
+
+- 本リポジトリは「実験設計 + 選定ロジック」を主軸にしています
+- 生成品質の評価は必ず `evaluation` 仕様で数値化する
+- 出力形式は固定（JSON / スキーマ）を前提に最適化する
+
+---
+
+## ライセンス
+
+MIT。`LICENSE` を参照。
