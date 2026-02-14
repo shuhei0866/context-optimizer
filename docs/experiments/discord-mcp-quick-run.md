@@ -19,10 +19,16 @@
   - `qualityGate`: そのタスクの許容品質閾値（現行実装では主に `strictMode` 時のバリアント除外に利用）
 - `quick-variants.csv`（候補評価データ）
   - `variantId`: 改善案ID（提案する施策そのもの）
+  - `description`: バリアントの差分意図（本実験では実プロンプト差分ではなく、施策の短縮設計意図を定義）
   - `reducedTokens`: 1回あたりのトークン削減見込み
   - `successRate`: 提案導入時に成功した比率（0〜1）
   - `violationRate`: 品質違反率（0〜1）
   - `requiredEffort`: 実装コスト（予算制約の単位）
+  - 本実験におけるバリアント:
+    - `compact-1`: レビュー文面の装飾削減、要点中心化
+    - `compact-2`: フォーマットの超短縮（効果大・副作用リスク高）
+    - `compact-ack`: ACK 文の固定表現を短縮し、最小構造の返却を目指す
+  - 実データ実験では `description` ではなく、`promptBefore` / `promptAfter` のような実差分を持つ列を追加し、実測トークン差分で `reducedTokens` を埋めるのが望ましい
 - `quick-runs.json`（観測ログ）
   - `taskId`: 実行対象タスク
   - `variantId`: 実行時に使われたバリアント（`deriveVariants` がここからバリアントの成功率等を再推定）
@@ -68,20 +74,6 @@ discord-review-1: 実行 2 回, 成功率 100%, 平均品質 92.5
 - `qualityPassThreshold=70`、`strictMode=true` の下で、両タスクとも品質制約を満たしたため採用対象になった。
 - 予算 `16` の制約下で、`compact-1`（レビュー）と `compact-ack`（ack）を採用し、合計工数 `13` を消費。
 - 1回あたり削減と頻度を掛けた推定削減の合計で、実行後コンテキストを `1098 -> 888.525` に圧縮（削減率ベースで約19.06%相当）。
-
-## 今回の「バリアント」の意味（最重要）
-
-- 本実験は、**実際のプロンプト差分を固定して再現することを目的としたものではなく**、最適化ロジックの流れを確認する最小サンプルです。
-- そのため `compact-1`/`compact-2`/`compact-ack` は、あくまで「どの程度短くするか」を表す**定義済みの抽象指標**です。
-- 実験で使った差分は `examples/discord-mcp/samples/quick-variants.csv` の `description` 列で意図を示しています。
-  - `compact-1`: レビュー文面の装飾削減、要点中心化
-  - `compact-2`: フォーマットの超短縮（効果大・副作用リスク高）
-  - `compact-ack`: ACK 文の固定表現を短縮し、最小構造の返却を目指す
-
-- もし「本当に入れたプロンプトを差分比較したい」なら、次を追加します。
-  1. 各バリアントに `promptBefore` / `promptAfter` を持つファイルを追加
-  2. `reducedTokens` を実測差分ベースで事前設定
-  3. 本レポートに `差分比較（before/after トークン数・失敗例）` を併記
 
 ## メモ
 
