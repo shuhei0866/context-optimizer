@@ -30,7 +30,7 @@ export function selectVariants(input: OptimizationInput): OptimizationReport {
   for (const task of input.tasks) {
     const variants = variantsByTask[task.taskId] ?? [];
     const strictValid = input.strictMode
-      ? variants.filter((v) => v.violationRate <= task.qualityGate)
+      ? variants.filter((v) => v.violationRate <= (1 - task.qualityGate))
       : variants;
 
     const valid = strictValid.filter((v) => v.reducedTokens > 0 && v.requiredEffort > 0);

@@ -1,6 +1,6 @@
 {
   "name": "context-optimizer",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "bin": {
@@ -9,7 +9,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "discord:mcp": "npm run build && node dist/cli.js --tasks data/tasks.csv --variants data/experiments.csv --runs data/runs.csv --budget 16 --strict true --format text"
+    "analyze": "npm run build && node dist/cli.js analyze",
+    "analyze:last": "npm run build && node dist/cli.js analyze --last",
+    "claudemd": "npm run build && node dist/cli.js claudemd",
+    "evaluate": "npm run build && node dist/cli.js evaluate",
+    "evaluate:dry": "npm run build && node dist/cli.js evaluate --dry-run",
+    "insights": "npm run build && node dist/cli.js insights"
   },
   "devDependencies": {
     "@types/node": "^25.2.3",
