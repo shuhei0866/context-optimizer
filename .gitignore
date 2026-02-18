@@ -11,3 +11,5 @@ yarn-error.log*
 coverage
 .obsidian
 /.eval-cache
+/.eval-reports
+.claude/

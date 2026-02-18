@@ -1,6 +1,7 @@
 import { scanClaudeMdFiles } from '../claudemd/scanner.js';
 import { parseSections } from '../claudemd/section-parser.js';
 import { runEvalPipeline, getDryRunSummary } from '../evaluate/runner.js';
+import { saveReport } from '../evaluate/report-store.js';
 import { SECTION_META } from '../evaluate/test-cases.js';
 import type { EvalOptions, EvalReport } from '../evaluate/types.js';
 import { DEFAULT_EVAL_OPTIONS } from '../evaluate/types.js';
@@ -27,6 +28,9 @@ function parseArgs(args: string[]): EvalOptions {
         break;
       case '--dry-run':
         options.dryRun = true;
+        break;
+      case '--save':
+        options.save = true;
         break;
     }
   }
@@ -67,6 +71,11 @@ export async function runEvaluate(args: string[]): Promise<void> {
       console.error(`  ${condition === 'original' ? '原文' : '圧縮'} ${testId}: ${mark}`);
     },
   });
+
+  if (options.save) {
+    const savedPath = saveReport(report);
+    console.error(`\nレポート保存: ${savedPath}`);
+  }
 
   if (options.format === 'json') {
     console.log(JSON.stringify(report, null, 2));

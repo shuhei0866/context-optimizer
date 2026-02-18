@@ -50,6 +50,7 @@ export interface EvalOptions {
   subjectModel: string;
   format: 'text' | 'json';
   dryRun: boolean;
+  save: boolean;
 }
 
 export const DEFAULT_EVAL_OPTIONS: EvalOptions = {
@@ -58,4 +59,5 @@ export const DEFAULT_EVAL_OPTIONS: EvalOptions = {
   subjectModel: 'claude-haiku-4-5-20251001',
   format: 'text',
   dryRun: false,
+  save: false,
 };
