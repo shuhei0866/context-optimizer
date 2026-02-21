@@ -1,3 +1,4 @@
+import { dirname } from 'node:path';
 import type {
   JsonlRecord,
   AssistantMessage,
@@ -7,6 +8,7 @@ import type {
   ToolResultBlock,
   ContentBlock,
   CostBreakdown,
+  FileAccess,
 } from './types.js';
 import { calculateTurnCost } from '../analyzer/cost-calculator.js';
 import { streamJsonl } from '../utils/streaming.js';
@@ -30,6 +32,50 @@ interface ParsedToolResult {
   resultSize: number;
 }
 
+export interface ParseSessionOptions {
+  includeFileAccess?: boolean;
+}
+
+/**
+ * Extract file access info from a tool_use block.
+ */
+function extractFileAccess(
+  toolName: string,
+  input: Record<string, unknown>,
+  resultSize: number,
+): FileAccess | null {
+  let filePath: string | undefined;
+  let operation: FileAccess['operation'];
+
+  switch (toolName) {
+    case 'Read':
+      filePath = input.file_path as string;
+      operation = 'read';
+      break;
+    case 'Write':
+      filePath = input.file_path as string;
+      operation = 'write';
+      break;
+    case 'Edit':
+      filePath = input.file_path as string;
+      operation = 'edit';
+      break;
+    case 'Glob':
+      filePath = input.path as string;
+      operation = 'glob';
+      break;
+    case 'Grep':
+      filePath = input.path as string;
+      operation = 'grep';
+      break;
+    default:
+      return null;
+  }
+
+  if (!filePath) return null;
+  return { filePath, directory: dirname(filePath), operation, resultSize };
+}
+
 /**
  * Parse a session JSONL file into TurnData[].
  *
@@ -39,7 +85,7 @@ interface ParsedToolResult {
  * - Turn boundaries are marked by system/turn_duration messages
  * - Sidechain messages (subagent) are skipped
  */
-export async function parseSession(filePath: string): Promise<{
+export async function parseSession(filePath: string, options?: ParseSessionOptions): Promise<{
   turns: TurnData[];
   sessionId: string;
   projectPath: string;
@@ -53,6 +99,9 @@ export async function parseSession(filePath: string): Promise<{
   const turnDurations: { timestamp: string; durationMs: number }[] = [];
   // Map from tool_use id to tool name
   const toolUseNames = new Map<string, string>();
+  // Map from tool_use id to tool input (for file access extraction)
+  const toolUseInputs = new Map<string, { name: string; input: Record<string, unknown> }>();
+  const includeFileAccess = options?.includeFileAccess ?? false;
 
   let sessionId = '';
   let projectPath = '';
@@ -109,6 +158,9 @@ export async function parseSession(filePath: string): Promise<{
         for (const block of msg.content) {
           if (block.type === 'tool_use') {
             toolUseNames.set(block.id, block.name);
+            if (includeFileAccess) {
+              toolUseInputs.set(block.id, { name: block.name, input: block.input });
+            }
           }
         }
       }
@@ -178,6 +230,7 @@ export async function parseSession(filePath: string): Promise<{
 
     // Aggregate tool uses for this message
     const toolMap = new Map<string, { callCount: number; totalResultSize: number }>();
+    const turnFileAccesses: FileAccess[] = [];
     for (const tu of msg.toolUseBlocks) {
       const info = toolResultIndex.get(tu.id);
       const name = tu.name;
@@ -187,6 +240,16 @@ export async function parseSession(filePath: string): Promise<{
         existing.totalResultSize += info.size;
       }
       toolMap.set(name, existing);
+
+      // Extract file access if enabled
+      if (includeFileAccess) {
+        const tuInput = toolUseInputs.get(tu.id);
+        if (tuInput) {
+          const resultSize = info?.size ?? 0;
+          const fa = extractFileAccess(tuInput.name, tuInput.input, resultSize);
+          if (fa) turnFileAccesses.push(fa);
+        }
+      }
     }
 
     const toolUses: ToolUseSummary[] = [...toolMap.entries()].map(([toolName, data]) => ({
@@ -209,6 +272,7 @@ export async function parseSession(filePath: string): Promise<{
       totalInputTokens: totalInput,
       cacheHitRatio,
       toolUses,
+      ...(includeFileAccess && turnFileAccesses.length > 0 ? { fileAccesses: turnFileAccesses } : {}),
       durationMs: turnDuration?.durationMs,
       estimatedCost: msg.cost,
     });

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { parseSession } from '../session/parser.js';
 import { resolveSessionPaths } from '../session/reader.js';
 import { analyzeSession } from '../analyzer/token-analyzer.js';
@@ -13,6 +13,7 @@ interface AnalyzeOptions {
   last: boolean;
   perTurn: boolean;
   format: 'text' | 'json';
+  exportPath?: string;
 }
 
 function parseArgs(args: string[]): AnalyzeOptions {
@@ -44,6 +45,9 @@ function parseArgs(args: string[]): AnalyzeOptions {
         break;
       case '--format':
         options.format = args[++i] as 'text' | 'json';
+        break;
+      case '--export':
+        options.exportPath = args[++i];
         break;
     }
   }
@@ -116,6 +120,12 @@ export async function runAnalyze(args: string[]): Promise<void> {
     process.exit(1);
   }
 
+  // Export to CSV if requested
+  if (options.exportPath) {
+    exportCsv(summaries, options.exportPath);
+    console.error(`エクスポート: ${options.exportPath} (${summaries.length} sessions)`);
+  }
+
   // Output
   if (options.format === 'json') {
     if (summaries.length === 1) {
@@ -129,4 +139,64 @@ export async function runAnalyze(args: string[]): Promise<void> {
       if (summaries.length > 1) console.log('');
     }
   }
+}
+
+function exportCsv(summaries: SessionSummary[], path: string): void {
+  const headers = [
+    'session_id',
+    'project',
+    'branch',
+    'turns',
+    'duration_min',
+    'input_tokens',
+    'cache_creation_tokens',
+    'cache_read_tokens',
+    'output_tokens',
+    'total_tokens',
+    'cumulative_input',
+    'cache_hit_ratio',
+    'cost_usd',
+    'models',
+    'top_tool',
+    'top_tool_calls',
+    'first_prompt',
+  ];
+
+  const rows = summaries.map((s) => {
+    const cumulativeInput = s.turns
+      ? s.turns.reduce((sum, t) => sum + t.totalInputTokens, 0)
+      : s.totalTokens.input + s.totalTokens.cacheCreation + s.totalTokens.cacheRead;
+
+    const topTool = s.toolRanking[0];
+
+    return [
+      s.sessionId,
+      s.projectPath,
+      s.gitBranch,
+      s.turnCount,
+      s.durationMs > 0 ? (s.durationMs / 60000).toFixed(1) : '',
+      s.totalTokens.input,
+      s.totalTokens.cacheCreation,
+      s.totalTokens.cacheRead,
+      s.totalTokens.output,
+      s.totalTokens.total,
+      cumulativeInput,
+      (s.overallCacheHitRatio * 100).toFixed(1),
+      s.totalCost.total.toFixed(3),
+      s.modelsUsed.join('+'),
+      topTool?.toolName || '',
+      topTool?.callCount || 0,
+      csvEscape(s.firstPrompt.slice(0, 100)),
+    ].join(',');
+  });
+
+  const csv = [headers.join(','), ...rows].join('\n');
+  writeFileSync(path, csv, 'utf-8');
+}
+
+function csvEscape(s: string): string {
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+    return '"' + s.replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+  }
+  return s;
 }

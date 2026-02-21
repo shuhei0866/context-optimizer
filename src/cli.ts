@@ -5,8 +5,10 @@ import { runClaudemd } from './commands/claudemd.js';
 import { runInsights } from './commands/insights.js';
 import { runEvaluate } from './commands/evaluate.js';
 import { runApply } from './commands/apply.js';
+import { runDiagnose } from './commands/diagnose.js';
+import { runAgents } from './commands/agents.js';
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 function printUsage(): void {
   console.log(`context-optimizer v${VERSION}
@@ -21,6 +23,8 @@ Claude Code セッション分析 & コンテキスト最適化ツール
   evaluate   CLAUDE.md 圧縮品質を LLM-as-judge で評価
   apply      評価結果の圧縮テキストを CLAUDE.md に反映
   insights   プロジェクト横断のトークン効率分析
+  diagnose   コンテキスト消費の診断（探索ホットスポット・重複検出）
+  agents     AGENTS.md の管理（scan / generate）
 
 analyze オプション:
   --session <id>         特定セッションを分析
@@ -29,6 +33,7 @@ analyze オプション:
   --last                 最新セッションのみ（デフォルト）
   --per-turn             ターン別内訳を表示
   --format text|json     出力形式（デフォルト: text）
+  --export <path>        セッション集計を CSV にエクスポート
 
 claudemd オプション:
   --format text|json     出力形式（デフォルト: text）
@@ -54,6 +59,19 @@ insights オプション:
   --all                  全プロジェクト横断（デフォルト）
   --limit <n>            分析セッション数上限（デフォルト: 50）
   --format text|json     出力形式（デフォルト: text）
+
+diagnose オプション:
+  --project <name|path>  対象プロジェクト（必須）
+  --limit <n>            分析セッション数（デフォルト: 30）
+  --format text|json     出力形式（デフォルト: text）
+
+agents サブコマンド:
+  agents scan <project-path>      AGENTS.md の有無をスキャン
+    --min-files <n>               最小ファイル数（デフォルト: 3）
+    --depth <n>                   スキャン深度（デフォルト: 4）
+    --format text|json            出力形式（デフォルト: text）
+  agents generate <directory>     AGENTS.md スケルトンを生成
+    --output <path>               出力先（デフォルト: stdout）
 `);
 }
 
@@ -75,6 +93,12 @@ async function main(): Promise<void> {
       break;
     case 'insights':
       await runInsights(process.argv.slice(3));
+      break;
+    case 'diagnose':
+      await runDiagnose(process.argv.slice(3));
+      break;
+    case 'agents':
+      await runAgents(process.argv.slice(3));
       break;
     case '--version':
     case '-v':

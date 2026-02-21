@@ -14,6 +14,14 @@ export interface TokenUsage {
   };
 }
 
+// File access extracted from tool use
+export interface FileAccess {
+  filePath: string;
+  directory: string; // dirname(filePath)
+  operation: 'read' | 'write' | 'edit' | 'glob' | 'grep';
+  resultSize: number;
+}
+
 // Tool use summary per turn
 export interface ToolUseSummary {
   toolName: string;
@@ -50,6 +58,7 @@ export interface TurnData {
   totalInputTokens: number; // input + creation + read
   cacheHitRatio: number; // read / totalInput
   toolUses: ToolUseSummary[];
+  fileAccesses?: FileAccess[];
   durationMs?: number;
   estimatedCost: CostBreakdown;
 }
