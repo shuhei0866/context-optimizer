@@ -1,208 +1,230 @@
 # context-optimizer
 
-LLM タスクの「コンテキスト最適化」を、再現可能な形で進めるための最小フレームワーク。
+Claude Code セッションのコンテキスト消費を分析・最適化する CLI ツール。
 
-同一/類似タスクを繰り返し実行する場面で、  
-`呼び出し回数 × 1回あたりコンテキスト` が大きいものを優先的に最適化する。
-
-- AI 向け運用規約: [AGENTS.md](AGENTS.md)
-- 数式記法（Obsidian 向け）: [docs/obsidian-kfluid-math-for-ai.md](docs/obsidian-kfluid-math-for-ai.md)
+セッション JSONL ログからトークン消費パターンを可視化し、CLAUDE.md の圧縮と AGENTS.md によるコードベース探索コストの削減を支援する。
 
 ---
 
-## 目的
+## 背景: コンテキストはどこに消えるか
 
-- コンテキストコストの高いタスクを選定する
-- 品質制約を守りつつ、必要最小コンテキストに近づける
-- 事前定義した評価ルールで再現性を担保する
-- 実験ログから改善前後を比較し、継続的に更新する
+471 セッションの分析から判明した消費内訳:
 
----
+| カテゴリ | 比率 | 最適化手段 |
+|---|---|---|
+| 会話履歴の膨張 | ~50-60% | セッション分割 |
+| コードベース探索（Read/Grep） | ~25-30% | **AGENTS.md** で削減 |
+| CLAUDE.md | ~10-27% | **圧縮** で削減 |
 
-## 何を解くか（数理）
-
-`TaskSpec` と `VariantSpec` を用いて、以下を最小化します。
-
-- 最適化の総工数（`budget`）の制約
-- 品質ゲートを満たす `score` の高い候補選択
-
-基礎式は簡潔で、`docs/context-optimization-framework.md` に詳しく記載。
-
-## 理論的な背景
-
-この問題は、反復実行タスクの「コンテキスト削減」を目標にする離散最適化です。  
-同じタスクを窓口（観測期間）内で何度も実行するほど、1 回あたりの改善余地は累積的に効いてきます。
-
-タスク集合を $T$、各タスクを $i$ とします。各タスクに対し候補改善案の集合を $V_i$ とし、  
-「改善案 $v$ を採択するか」の変数を $x_{i,v}\in\{0,1\}$ で表します。
-
-1 タスクあたり 1 つだけ採択（または未採択）とするため、次が成り立ちます。
-
-$$
-\sum_{v\in V_i}x_{i,v}\le 1\quad(\forall i\in T),\quad x_{i,v}\in\{0,1\}
-$$
-
-各タスクの主要パラメータは次です。
-
-$$
-\begin{aligned}
-f_i &: \text{観測窓あたりの呼び出し回数} \\
-u_i &: \text{改善前 1 回あたりの期待コンテキスト消費量} \\
-r_i(v) &: \text{改善案 }v\text{の 1 回あたり期待削減量（理想値）} \\
-q_i(v) &: \text{改善案 }v\text{の品質違反率（1 回あたり）} \\
-e_i(v) &: \text{改善案 }v\text{の実装工数}
-\end{aligned}
-$$
-
-品質を守るため、安全削減値を次のように定義します。
-
-$$
-\Delta C_i^{\text{safe}}(v)
-= f_i\cdot \max(0,\min(u_i,r_i(v)))\cdot(1-q_i(v))
-$$
-
-総予算 $B$ 下で、総安全削減量を最大化する 0-1 最適化は以下になります。
-
-$$
-\max \sum_{i\in T}\sum_{v\in V_i}\Delta C_i^{\text{safe}}(v)\,x_{i,v}
-$$
-
-$$
-\sum_{i\in T}\sum_{v\in V_i}e_i(v)x_{i,v}\le B,\quad
-\sum_{v\in V_i}x_{i,v}\le 1
-$$
-
-`selectVariants` はこの整数計画を、実務向けに近い近似解として実装している関数です。  
-現行実装は「候補を価値密度で並べ、予算内で採択する」貪欲近似を採用し、最小限の計算量で再現性を担保します。
+Read 操作の 17.9% がセッション内重複という知見も得られている。
 
 ---
 
-## ディレクトリ構成
-
-```text
-context-optimizer/
-├─ README.md
-├─ LICENSE
-├─ CONTRIBUTING.md
-├─ CODE_OF_CONDUCT.md
-├─ SECURITY.md
-├─ docs/
-│  ├─ context-optimization-framework.md
-│  ├─ architecture.md
-│  └─ usage.md
-├─ examples/
-│  ├─ discord-mcp/
-│  │  ├─ prompt-template.md
-│  │  ├─ quality-rules.md
-│  │  └─ sample-runs.json
-│  └─ general/
-│     └─ minimal-example.md
-├─ templates/
-│  ├─ task-spec.schema.json
-│  ├─ task-spec.example.json
-│  ├─ evaluation-config.yaml
-│  └─ prompt-base.md
-├─ src/
-│  └─ core/
-│     ├─ types.ts
-│     ├─ optimizer.ts
-│     ├─ score.ts
-│     ├─ evaluator.ts
-│     ├─ ablation.ts
-│     └─ index.ts
-├─ data/
-│  ├─ tasks.csv
-│  ├─ runs.csv
-│  └─ experiments.csv
-├─ tests/
-├─ .github/workflows/ci.yml
-└─ .gitignore
-```
-
----
-
-## クイックスタート
-
-### 1. 依存関係
+## インストール
 
 ```bash
+git clone https://github.com/shuhei0866/context-optimizer.git
+cd context-optimizer
 npm install
-npm run typecheck
-```
-
-### 2. 最適化を回す（TypeScript）
-
-```ts
-import { TaskSpec, selectVariants } from './src/core';
-
-const tasks: TaskSpec[] = [
-  {
-    taskId: 'discord-review-1',
-    name: 'Discord レビュー投稿',
-    frequency: 120,
-    baselineTokens: 420,
-    qualityGate: 0.95,
-  },
-];
-
-const variants = [
-  {
-    variantId: 'compact-1',
-    taskId: 'discord-review-1',
-    name: 'プロンプト圧縮',
-    reducedTokens: 90,
-    successRate: 0.94,
-    violationRate: 0.02,
-    requiredEffort: 8,
-  },
-];
-
-const result = selectVariants({
-  tasks,
-  variants,
-  budget: 20,
-  strictMode: true,
-});
-
-console.log(result);
-```
-
-`selectVariants` は以下を返します。
-
-- タスクごとの最適候補
-- 想定削減量
-- 工数使用率
-- 最終コンテキスト見積り
-
-### 3. 結果の運用
-
-- `selected` 候補をテンプレートに反映
-- 最低 3 回以上の追試で品質安定性を確認
-- 2 週間ごとに baseline と成功率を再計測
-
-### 4. Discord MCP 実験
-
-```bash
-npm run discord:mcp
-```
-
-このコマンドは `data/tasks.csv` / `data/experiments.csv` / `data/runs.csv` を使って、  
-Discord MCP 向けの選定を最短で回します。
-
-必要なら `--deriveVariants` を付けて、`runs` ログから `successRate` / `violationRate` / `reducedTokens` を再推定できます。
-
-```bash
 npm run build
-node dist/cli.js --tasks data/tasks.csv --variants data/experiments.csv --runs examples/discord-mcp/sample-runs.json --deriveVariants --format json
 ```
 
 ---
 
-## 重要な前提
+## コマンド一覧
 
-- 本リポジトリは「実験設計 + 選定ロジック」を主軸にしています
-- 生成品質の評価は必ず `evaluation` 仕様で数値化する
-- 出力形式は固定（JSON / スキーマ）を前提に最適化する
+### セッション分析
+
+#### `analyze` — セッション単位のトークン消費
+
+```bash
+# 最新セッションを分析
+context-optimizer analyze
+
+# プロジェクト内の全セッション
+context-optimizer analyze --project my-app --all --per-turn
+
+# CSV エクスポート
+context-optimizer analyze --project my-app --all --export sessions.csv
+```
+
+#### `insights` — プロジェクト横断の傾向分析
+
+```bash
+# 全プロジェクトの集計
+context-optimizer insights
+
+# 特定プロジェクト、上限100セッション
+context-optimizer insights --project my-app --limit 100
+```
+
+プロジェクト別の平均コスト、キャッシュヒット率、高コストツールパターンを表示。
+
+#### `diagnose` — コンテキスト消費の診断
+
+```bash
+context-optimizer diagnose --project my-app --limit 30
+```
+
+セッション JSONL からファイルアクセスを抽出し、以下を診断:
+
+- **探索ホットスポット**: どのディレクトリが頻繁に探索されているか
+- **Read 重複率**: 同じファイルを何度も読んでいないか
+- **CLAUDE.md 比率**: コンテキストに占める CLAUDE.md の割合
+- **AGENTS.md カバレッジ**: ホットスポットに AGENTS.md があるか
+- **推奨事項**: 上記に基づく改善提案
+
+### CLAUDE.md 最適化
+
+#### `claudemd` — トークンコスト分析
+
+```bash
+context-optimizer claudemd
+```
+
+CLAUDE.md をセクション分割し、各セクションのトークン数と圧縮可能性を評価。
+
+#### `evaluate` — 圧縮品質の評価
+
+```bash
+# 圧縮品質を LLM-as-judge で評価
+context-optimizer evaluate --trials 4
+
+# ドライラン（テストケース確認のみ）
+context-optimizer evaluate --dry-run
+
+# 結果を保存
+context-optimizer evaluate --save
+```
+
+原文と圧縮版で LLM の行動が変わらないかを定量評価。
+
+#### `apply` — 圧縮結果の適用
+
+```bash
+# diff を確認
+context-optimizer apply --dry-run
+
+# 適用
+context-optimizer apply --yes
+```
+
+evaluate の結果をもとに CLAUDE.md を書き換え。違反率が閾値以下のセクションのみ適用。
+
+### AGENTS.md 管理
+
+#### `agents scan` — カバレッジスキャン
+
+```bash
+context-optimizer agents scan /path/to/project
+```
+
+プロジェクト内のディレクトリを再帰スキャンし、AGENTS.md の有無とコードファイル数を一覧表示。diagnose のホットスポットと組み合わせて、どこに AGENTS.md を置くべきかを判断する。
+
+#### `agents generate` — スケルトン生成
+
+```bash
+# stdout に出力
+context-optimizer agents generate /path/to/project/src/lib/quiz
+
+# ファイルに保存
+context-optimizer agents generate /path/to/project/src/lib/quiz --output AGENTS.md
+```
+
+ディレクトリ内のファイル構造からスケルトン AGENTS.md を自動生成。
+
+---
+
+## データフロー
+
+```
+~/.claude/projects/**/*.jsonl    プロジェクトディレクトリ
+        |                                |
+        +---> analyze ---> サマリー       +---> agents scan ---> カバレッジ一覧
+        |                                |
+        +---> insights --> 横断集計       +---> agents generate -> スケルトン
+        |
+        +---> diagnose --> ホットスポット / 重複率 / 推奨事項
+        |
+        +---> claudemd --> セクション別コスト
+                |
+                +---> evaluate --> 圧縮品質スコア
+                        |
+                        +---> apply --> CLAUDE.md 書き換え
+```
+
+---
+
+## 最適化の 2 軸
+
+1. **CLAUDE.md 圧縮**（`claudemd` → `evaluate` → `apply`）
+   - コンテキストの 10-27% を占める CLAUDE.md を、行動品質を保ちつつトークン数を削減
+
+2. **探索コスト削減**（`diagnose` → `agents scan` → `agents generate`）
+   - コンテキストの 25-30% を占めるコードベース探索を、AGENTS.md でナビゲーションして削減
+
+---
+
+## 全オプションリファレンス
+
+```
+context-optimizer <command> [options]
+
+analyze:
+  --session <id>          特定セッションを分析
+  --project <name|path>   プロジェクト内のセッションを分析
+  --all                   全プロジェクト横断
+  --last                  最新セッションのみ（デフォルト）
+  --per-turn              ターン別内訳を表示
+  --format text|json      出力形式（デフォルト: text）
+  --export <path>         CSV エクスポート
+
+insights:
+  --project <name|path>   特定プロジェクトのみ
+  --all                   全プロジェクト横断（デフォルト）
+  --limit <n>             分析セッション数上限（デフォルト: 50）
+  --format text|json      出力形式（デフォルト: text）
+
+diagnose:
+  --project <name|path>   対象プロジェクト（必須）
+  --limit <n>             分析セッション数（デフォルト: 30）
+  --format text|json      出力形式（デフォルト: text）
+
+claudemd:
+  --format text|json      出力形式（デフォルト: text）
+
+evaluate:
+  --section <name>        特定セクションのみ評価
+  --trials <n>            試行数（デフォルト: 4）
+  --judge-model <model>   判定モデル
+  --subject-model <model> 被験者モデル
+  --format text|json      出力形式（デフォルト: text）
+  --save                  結果をレポートファイルに保存
+  --dry-run               API 呼び出しなし
+
+apply:
+  --file <path>           対象 CLAUDE.md（デフォルト: グローバル）
+  --report <path>         レポートファイル（デフォルト: latest.json）
+  --max-violation <rate>  許容する最大違反率（デフォルト: 0.1）
+  --yes                   確認なしで適用
+  --dry-run               diff 表示のみ
+
+agents scan <project-path>:
+  --min-files <n>         最小ファイル数（デフォルト: 3）
+  --depth <n>             スキャン深度（デフォルト: 4）
+  --format text|json      出力形式（デフォルト: text）
+
+agents generate <directory>:
+  --output <path>         出力先（デフォルト: stdout）
+```
+
+---
+
+## 理論的背景
+
+反復実行タスクのコンテキスト削減を離散最適化として定式化している。詳細は [docs/context-optimization-framework.md](docs/context-optimization-framework.md) を参照。
+
+`src/core/` の `selectVariants` は、タスク候補を価値密度でソートし予算内で採択する貪欲近似を実装。
 
 ---
 
